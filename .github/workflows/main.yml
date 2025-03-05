@@ -1,5 +1,14 @@
 name: Application Workflow
-on: workflow_dispatch
+on: 
+  push:
+    branches:
+      - main
+    paths:
+      - kubernetes/*
+      - src/*
+      - Dockerfile
+      
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
