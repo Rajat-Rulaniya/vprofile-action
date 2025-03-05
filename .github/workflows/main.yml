@@ -121,7 +121,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           cluster-name: ${{ env.EKS_CLUSTER }}
           chart-path: ./Vpro-app-chart
-          name: Actions-release-${{ github.run_number }}      
+          name: actions-release-${{ github.run_number }}      
       
       - name: Package Helm Chart
         run: |
