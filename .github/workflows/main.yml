@@ -1,12 +1,12 @@
 name: Application Workflow
 on: 
-  # push:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - kubernetes/*
-  #     - src/*
-  #     - Dockerfile
+  push:
+    branches:
+      - main
+    paths:
+      - kubernetes/*
+      - src/*
+      - Dockerfile
 
   workflow_dispatch:
 
@@ -115,13 +115,13 @@ jobs:
         run: helm lint Vpro-app-chart
                     
   
-      # - name: Deploy Helm Chart
-      #   uses: bitovi/github-actions-deploy-eks-helm@v1.2.12
-      #   with:
-      #     aws-region: ${{ env.AWS_REGION }}
-      #     cluster-name: ${{ env.EKS_CLUSTER }}
-      #     chart-path: ./Vpro-app-chart
-      #     name: Actions-release-${{ github.run_number }}      
+      - name: Deploy Helm Chart
+        uses: bitovi/github-actions-deploy-eks-helm@v1.2.12
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ env.EKS_CLUSTER }}
+          chart-path: ./Vpro-app-chart
+          name: Actions-release-${{ github.run_number }}      
       
       - name: Package Helm Chart
         run: |
