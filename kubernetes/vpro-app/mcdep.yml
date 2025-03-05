@@ -8,6 +8,7 @@ spec:
   selector:
     matchLabels:
       app: vpromc
+      
   replicas: 1
   template:
     metadata:
