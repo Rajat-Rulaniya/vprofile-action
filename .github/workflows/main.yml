@@ -1,0 +1,123 @@
+name: Application Workflow
+on: workflow_dispatch
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: vprofile-eks
+
+jobs:
+  TESTING:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Code
+        uses: actions/checkout@v4
+
+      - name: Maven test
+        run: mvn test
+
+      - name: CheckStyle analysis
+        run: mvn checkstyle:checkstyle
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Setup SonarQube
+        uses: warchant/setup-sonar-scanner@v7
+
+      - name: SonarQube Scan
+        run: |
+          sonar-scanner \
+          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+          -Dsonar.organization=${{ secrets.ORGANIZATION_KEY }} \
+          -Dsonar.projectKey=${{ secrets.PROJECT_KEY }} \
+          -Dsonar.projectName=vprofile-actions \
+          -Dsonar.projectVersion=1.0 \
+          -Dsonar.sources=src/ \
+          -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
+          -Dsonar.junit.reportsPath=target/surefire-reports/ \
+          -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+          -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml
+      
+      - name: SonarQube Quality Gate check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        with:
+          pollingTimeoutSec: 60
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      
+
+  BUILD:
+    needs: TESTING
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Code
+        uses: actions/checkout@v4
+
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_USER_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_USER_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+
+      - name: Build Docker Image
+        run: |
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/j6f0n1t4
+
+          docker build -t ${{ secrets.REGISTRY }}:latest -t ${{ secrets.REGISTRY }}:Actions-Build-${{ github.run_number }} .
+
+
+      - name: Push Docker Image
+        run: |
+          docker push --all-tags ${{ secrets.REGISTRY }}
+
+
+  DEPLOY:
+    needs: BUILD
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_USER_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_USER_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}          
+    
+
+      - name: Create Helm Chart
+        run: |
+          helm create Vpro-app-chart
+          rm -rf Vpro-app-chart/templates/*
+          cp ./kubernetes/vpro-app/*.{yml,yaml} Vpro-app-chart/templates/ || true
+          sed -i "s/^version:.*/version: 1.0.${{ github.run_number }}/" Vpro-app-chart/Chart.yaml
+  
+  
+      - name: Validate Helm Chart
+        run: helm lint Vpro-app-chart
+                    
+  
+      - name: Deploy Helm Chart
+        uses: bitovi/github-actions-deploy-eks-helm@v1.2.12
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ env.EKS_CLUSTER }}
+          chart-path: ./Vpro-app-chart
+          name: Actions-release-${{ github.run_number }}      
+      
+      - name: Package Helm Chart
+        run: |
+          helm package Vpro-app-chart
+          aws s3 cp Vpro-app-chart-1.0.${{ github.run_number }}.tgz s3://helm-charts-vproapp/
+
+      
+
