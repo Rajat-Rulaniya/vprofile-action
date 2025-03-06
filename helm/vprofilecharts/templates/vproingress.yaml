@@ -6,9 +6,8 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
-  rules:
-  - host: app.rajatrulaniya.xyz
-    http:
+  rules: 
+  -  http:
       paths:
       - path: /
         pathType: Prefix
