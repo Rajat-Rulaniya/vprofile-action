@@ -4,9 +4,8 @@ on:
     branches:
       - main
     paths:
-      - kubernetes/**
+      - helm/**
       - src/**
-      - Dockerfile
 
   workflow_dispatch:
 
@@ -88,7 +87,7 @@ jobs:
           docker push --all-tags ${{ secrets.REGISTRY }}
 
 
-  DEPLOY:
+  DeployToEKS:
     needs: BUILD
     runs-on: ubuntu-latest
     steps:
@@ -101,32 +100,16 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_USER_ACCESS_ID }}
           aws-secret-access-key: ${{ secrets.AWS_USER_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION }}          
-    
 
-      - name: Create Helm Chart
-        run: |
-          helm create Vpro-app-chart
-          rm -rf Vpro-app-chart/templates/*
-          cp ./kubernetes/vpro-app/*.{yml,yaml} Vpro-app-chart/templates/ || true
-          sed -i "s/^version:.*/version: 1.0.${{ github.run_number }}/" Vpro-app-chart/Chart.yaml
-  
-  
-      - name: Validate Helm Chart
-        run: helm lint Vpro-app-chart
-                    
   
       - name: Deploy Helm Chart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.12
         with:
           aws-region: ${{ env.AWS_REGION }}
           cluster-name: ${{ env.EKS_CLUSTER }}
-          chart-path: ./Vpro-app-chart
-          name: actions-release-${{ github.run_number }}      
-      
-      - name: Package Helm Chart
-        run: |
-          helm package Vpro-app-chart
-          aws s3 cp Vpro-app-chart-1.0.${{ github.run_number }}.tgz s3://helm-charts-vproapp/
+          chart-path: ./helm/vprofilecharts
+          name: vprofile-stack
+          values: appimage=${{ secrets.REGISTRY }}, apptag=${{ github.run_number }}
 
       
 
