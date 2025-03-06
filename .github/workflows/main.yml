@@ -109,7 +109,7 @@ jobs:
           cluster-name: ${{ env.EKS_CLUSTER }}
           chart-path: ./helm/vprofilecharts
           name: vprofile-stack
-          values: appimage=${{ secrets.REGISTRY }}, apptag=${{ github.run_number }}
+          values: appimage=${{ secrets.REGISTRY }}, apptag=latest
 
       
 
